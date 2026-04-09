@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id       String @id @default(uuid())
+  username String @unique
+  password String
+  role     String // "kasir" | "kitchen"
+  name     String
+}
+
+model Shift {
+  id           String   @id @default(uuid())
+  openedBy     String
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+  cashStart    Float
+  cashEnd      Float?
+  expectedCash Float?
+  status       String   // "open" | "closed"
+}
+
+model Stand {
+  id          String  @id @default(uuid())
+  standNumber Int     @unique
+  isActive    Boolean @default(false)
+  orderId     String? @unique
+  order       Order?
+}
+
+model Table {
+  id          String @id @default(uuid())
+  tableNumber String @unique
+  qrCode      String @unique
+  isQREnabled Boolean @default(true)
+}
+
+model MenuItem {
+  id          String  @id @default(uuid())
+  name        String
+  category    String
+  price       Float
+  description String?
+  image       String?
+  isAvailable Boolean @default(true)
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id            String    @id @default(uuid())
+  standId       String?   @unique
+  tableId       String?
+  orderSource   String    // "qr" | "walk-in"
+  orderType     String    // "dine-in" | "take-away"
+  status        String    // "pending", "preparing", "ready", "served", "cancelled"
+  paymentStatus String    // "unpaid", "paid", "refunded"
+  paymentMethod String?   // "qris", "cash", "debit"
+  paymentId     String?
+  queueNumber   String?
+  subtotal      Float
+  tax           Float
+  totalAmount   Float
+  customerNote  String?
+  paidAt        DateTime?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  stand         Stand?    @relation(fields: [standId], references: [id])
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  note       String?
+  subtotal   Float
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+model Refund {
+  id              String   @id @default(uuid())
+  orderId         String
+  amount          Float
+  reason          String
+  refundedBy      String
+  refundedAt      DateTime @default(now())
+  paymentRefundId String?
+}
