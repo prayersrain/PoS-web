@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { broadcastOrderUpdate } from "@/app/api/sse/orders/route";
 
 const MIDTRANS_SANDBOX_API = "https://api.sandbox.midtrans.com";
 const MIDTRANS_SANDBOX_SNAP = "https://app.sandbox.midtrans.com";
@@ -106,15 +107,32 @@ export async function createQRISPayment(params: CreatePaymentParams) {
   }
 }
 
-// Handle Midtrans HTTP notification
+// Handle Midtrans HTTP notification with signature verification
 export async function handleNotification(notification: any) {
   try {
     const orderId = notification.order_id;
+    const statusCode = notification.status_code;
+    const grossAmount = notification.gross_amount;
     const transactionStatus = notification.transaction_status;
     const paymentType = notification.payment_type;
     const fraudStatus = notification.fraud_status;
+    const signatureKey = notification.signature_key;
 
     console.log(`Notification received. Order: ${orderId}, Status: ${transactionStatus}, Payment: ${paymentType}`);
+
+    // Verify signature: SHA512(order_id + status_code + gross_amount + server_key)
+    if (signatureKey && SERVER_KEY) {
+      const stringToSign = `${orderId}${statusCode}${grossAmount}${SERVER_KEY}`;
+      const expectedSignature = require("crypto")
+        .createHash("sha512")
+        .update(stringToSign)
+        .digest("hex");
+
+      if (signatureKey !== expectedSignature) {
+        console.error(`Invalid signature for order ${orderId}`);
+        throw new Error("Invalid webhook signature");
+      }
+    }
 
     // Find the order in database
     const order = await prisma.order.findUnique({ where: { id: orderId } });
@@ -123,10 +141,16 @@ export async function handleNotification(notification: any) {
       return;
     }
 
+    // Idempotency: skip if already paid with same status
+    if (order.paymentStatus === "paid" && transactionStatus === "settlement") {
+      console.log(`Order ${orderId} already paid, skipping duplicate notification`);
+      return notification;
+    }
+
     // Handle different transaction statuses
     if (transactionStatus === "capture") {
       if (fraudStatus === "accept") {
-        await prisma.order.update({
+        const updatedOrder = await prisma.order.update({
           where: { id: orderId },
           data: {
             paymentStatus: "paid",
@@ -135,10 +159,12 @@ export async function handleNotification(notification: any) {
             paidAt: new Date(),
             status: "pending",
           },
+          include: { items: { include: { menuItem: true } }, stand: true, table: true },
         });
+        broadcastOrderUpdate({ type: "payment", order: updatedOrder });
       }
     } else if (transactionStatus === "settlement") {
-      await prisma.order.update({
+      const updatedOrder = await prisma.order.update({
         where: { id: orderId },
         data: {
           paymentStatus: "paid",
@@ -147,24 +173,30 @@ export async function handleNotification(notification: any) {
           paidAt: new Date(),
           status: "pending",
         },
+        include: { items: { include: { menuItem: true } }, stand: true, table: true },
       });
+      broadcastOrderUpdate({ type: "payment", order: updatedOrder });
     } else if (transactionStatus === "pending") {
-      await prisma.order.update({
+      const updatedOrder = await prisma.order.update({
         where: { id: orderId },
         data: {
           paymentStatus: "unpaid",
           paymentMethod: paymentType as any,
           paymentId: notification.transaction_id,
         },
+        include: { items: { include: { menuItem: true } }, stand: true, table: true },
       });
+      broadcastOrderUpdate({ type: "payment", order: updatedOrder });
     } else if (transactionStatus === "deny" || transactionStatus === "cancel" || transactionStatus === "expire") {
-      await prisma.order.update({
+      const updatedOrder = await prisma.order.update({
         where: { id: orderId },
         data: {
           paymentStatus: "unpaid",
           status: "cancelled",
         },
+        include: { items: { include: { menuItem: true } }, stand: true, table: true },
       });
+      broadcastOrderUpdate({ type: "payment", order: updatedOrder });
     }
 
     return notification;

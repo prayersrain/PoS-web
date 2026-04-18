@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-server";
 
 export async function GET() {
   try {
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const stands = await prisma.stand.findMany({
       orderBy: { standNumber: "asc" },
     });
@@ -16,23 +22,30 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Find first inactive stand
-    const availableStand = await prisma.stand.findFirst({
+    // Atomically claim the first inactive stand to prevent race condition
+    const result = await prisma.stand.updateMany({
       where: { isActive: false },
-      orderBy: { standNumber: "asc" },
+      data: { isActive: true },
     });
 
-    if (!availableStand) {
+    if (result.count === 0) {
       return NextResponse.json({ error: "No stands available" }, { status: 400 });
     }
 
-    // Mark stand as active
-    const stand = await prisma.stand.update({
-      where: { id: availableStand.id },
-      data: { isActive: true },
+    // Fetch the stand we just activated
+    const stand = await prisma.stand.findFirst({
+      where: { isActive: true, currentOrderId: null },
+      orderBy: { standNumber: "asc" },
     });
+
+    if (!stand) {
+      return NextResponse.json({ error: "No stands available" }, { status: 400 });
+    }
 
     return NextResponse.json(stand);
   } catch (error) {

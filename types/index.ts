@@ -57,6 +57,8 @@ export interface Order {
   createdAt: Date;
   updatedAt: Date;
   items?: OrderItem[];
+  stand?: Stand;
+  table?: Table;
 }
 
 export interface Stand {

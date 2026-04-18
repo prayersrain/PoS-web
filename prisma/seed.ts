@@ -7,57 +7,86 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Create default users
-  const kasirPassword = await bcrypt.hash("kasir123", 10);
-  const kitchenPassword = await bcrypt.hash("kitchen123", 10);
+  if ((await prisma.user.count()) <= 2) { // Increased count to check for admin
+    const adminPassword = await bcrypt.hash("admin123", 10);
+    const kasirPassword = await bcrypt.hash("kasir123", 10);
+    const kitchenPassword = await bcrypt.hash("kitchen123", 10);
 
-  await prisma.user.createMany({
-    data: [
-      {
-        username: "kasir",
-        password: kasirPassword,
-        role: "kasir",
-        name: "Kasir Utama",
+    // Upsert admin to ensure it exists
+    await prisma.user.upsert({
+      where: { username: "admin" },
+      update: {},
+      create: {
+        username: "admin",
+        password: adminPassword,
+        role: "admin",
+        name: "Owner / Administrator",
       },
-      {
-        username: "kitchen",
-        password: kitchenPassword,
-        role: "kitchen",
-        name: "Kitchen Staff",
-      },
-    ],
-  });
+    });
 
-  console.log("✅ Users created");
+    // Bulk create others if missing
+    const usersExist = await prisma.user.findMany({
+      where: { username: { in: ["kasir", "kitchen"] } }
+    });
 
-  // Create 25 stands
-  const stands = Array.from({ length: 25 }, (_, i) => ({
-    standNumber: i + 1,
-    isActive: false,
-  }));
+    if (usersExist.length < 2) {
+      await prisma.user.createMany({
+        data: [
+          {
+            username: "kasir",
+            password: kasirPassword,
+            role: "kasir",
+            name: "Kasir Utama",
+          },
+          {
+            username: "kitchen",
+            password: kitchenPassword,
+            role: "kitchen",
+            name: "Kitchen Staff",
+          },
+        ].filter(u => !usersExist.some(ex => ex.username === u.username)),
+      });
+    }
 
-  await prisma.stand.createMany({
-    data: stands,
-  });
+    console.log("✅ Users updated (Admin added)");
+  }
 
-  console.log("✅ Stands created");
+  // Create 40 stands (Numbered 41-80 as requested to avoid overlap with Tables T1-40)
+  const standCount = await prisma.stand.count();
+  if (standCount < 40) {
+    const stands = Array.from({ length: 40 }, (_, i) => ({
+      standNumber: i + 41,
+      isActive: false,
+    }));
 
-  // Create 40 tables with QR codes
-  const tables = Array.from({ length: 40 }, (_, i) => ({
-    tableNumber: `T${i + 1}`,
-    qrCode: `warkoem-qr-t${i + 1}-${Math.random().toString(36).substring(2, 10)}`,
-    isQREnabled: true,
-  }));
+    await prisma.stand.createMany({
+      data: stands,
+      skipDuplicates: true,
+    });
 
-  await prisma.table.createMany({
-    data: tables,
-  });
+    console.log("✅ Stands updated (41-80)");
+  }
 
-  console.log("✅ Tables created");
+  // Create 40 tables with QR codes (T1-T40)
+  if ((await prisma.table.count()) === 0) {
+    const tables = Array.from({ length: 40 }, (_, i) => ({
+      tableNumber: `T${i + 1}`,
+      qrCode: `warkoem-qr-t${i + 1}-${Math.random().toString(36).substring(2, 10)}`,
+      isQREnabled: true,
+    }));
+
+    await prisma.table.createMany({
+      data: tables,
+    });
+
+    console.log("✅ Tables created (T1-40)");
+  }
 
   // Create menu items (Warkoem Pul real data)
-  const menuItems = [
-    // MAKANAN BERAT - NASI
-    { name: "Nasi Goreng", category: "nasi", price: 16000 },
+  if ((await prisma.menuItem.count()) === 0) {
+    const menuItems = [
+      // MAKANAN BERAT - NASI
+      { name: "Nasi Goreng", category: "nasi", price: 16000 },
     { name: "Nasi Gila", category: "nasi", price: 16000 },
     { name: "Nasi Goreng Gila", category: "nasi", price: 18000 },
     { name: "Nasi Usus Mercon", category: "nasi", price: 17000 },
@@ -112,7 +141,6 @@ async function main() {
     { name: "Ovaltine", category: "minuman", price: 10000 },
     { name: "Ovaltine Susu", category: "minuman", price: 14000 },
     { name: "Soda Susu", category: "minuman", price: 13000 },
-    { name: "Extra Joss Susu", category: "minuman", price: 7000 },
     { name: "Extra Joss Susu", category: "minuman", price: 10000 },
     { name: "Kukubima Anggur", category: "minuman", price: 7000 },
     { name: "Kukubima Anggur Susu", category: "minuman", price: 10000 },
@@ -124,14 +152,17 @@ async function main() {
     { name: "Coca Susu", category: "minuman", price: 13000 },
   ];
 
-  await prisma.menuItem.createMany({
-    data: menuItems.map((item) => ({
-      ...item,
-      isAvailable: true,
-    })),
-  });
+    await prisma.menuItem.createMany({
+      data: menuItems.map((item) => ({
+        ...item,
+        isAvailable: true,
+      })),
+    });
 
-  console.log(`✅ ${menuItems.length} menu items created`);
+    console.log(`✅ ${menuItems.length} menu items created`);
+  } else {
+    console.log("⏭️  Menu items already exist, skipping...");
+  }
   console.log("🎉 Seeding completed!");
 }
 

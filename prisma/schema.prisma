@@ -3,77 +3,98 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id       String @id @default(uuid())
-  username String @unique
-  password String
-  role     String // "kasir" | "kitchen"
-  name     String
+  id        String     @id @default(uuid())
+  username  String     @unique
+  password  String
+  role      String
+  name      String
+  isActive  Boolean    @default(true)
+  auditLogs AuditLog[]
+  sessions  Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Shift {
-  id           String   @id @default(uuid())
-  openedBy     String
-  openedAt     DateTime @default(now())
-  closedAt     DateTime?
-  cashStart    Float
-  cashEnd      Float?
-  expectedCash Float?
-  status       String   // "open" | "closed"
+  id                String    @id @default(uuid())
+  openedBy          String
+  openedAt          DateTime  @default(now())
+  closedAt          DateTime?
+  cashStart         Float
+  cashEnd           Float?
+  expectedCash      Float?
+  status            String
+  cashDifference    Float?
+  closedBy          String?
+  totalSales        Float?
+  totalTransactions Int?
 }
 
 model Stand {
-  id          String  @id @default(uuid())
-  standNumber Int     @unique
-  isActive    Boolean @default(false)
-  orderId     String? @unique
-  order       Order?
+  id             String  @id @default(uuid())
+  standNumber    Int     @unique
+  isActive       Boolean @default(false)
+  currentOrderId String? @unique
+  orders         Order?  @relation("OrderStand")
+  currentOrder   Order?  @relation("StandCurrentOrder", fields: [currentOrderId], references: [id])
 }
 
 model Table {
-  id          String @id @default(uuid())
-  tableNumber String @unique
-  qrCode      String @unique
+  id          String  @id @default(uuid())
+  tableNumber String  @unique
+  qrCode      String  @unique
   isQREnabled Boolean @default(true)
+  orders      Order[]
 }
 
 model MenuItem {
-  id          String  @id @default(uuid())
+  id          String      @id @default(uuid())
   name        String
   category    String
   price       Float
   description String?
   image       String?
-  isAvailable Boolean @default(true)
+  isAvailable Boolean     @default(true)
   orderItems  OrderItem[]
 }
 
 model Order {
-  id            String    @id @default(uuid())
-  standId       String?   @unique
+  id            String      @id @default(uuid())
+  standId       String?     @unique
   tableId       String?
-  orderSource   String    // "qr" | "walk-in"
-  orderType     String    // "dine-in" | "take-away"
-  status        String    // "pending", "preparing", "ready", "served", "cancelled"
-  paymentStatus String    // "unpaid", "paid", "refunded"
-  paymentMethod String?   // "qris", "cash", "debit"
+  orderSource   String
+  orderType     String
+  status        String
+  paymentStatus String
+  paymentMethod String?
   paymentId     String?
   queueNumber   String?
   subtotal      Float
   tax           Float
   totalAmount   Float
   customerNote  String?
+  cancelReason  String?
   paidAt        DateTime?
   createdBy     String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  stand         Stand?    @relation(fields: [standId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  stand         Stand?      @relation("OrderStand", fields: [standId], references: [id])
+  table         Table?      @relation(fields: [tableId], references: [id])
   items         OrderItem[]
+  stoodOrders   Stand?      @relation("StandCurrentOrder")
 }
 
 model OrderItem {
@@ -83,9 +104,9 @@ model OrderItem {
   quantity   Int
   note       String?
   subtotal   Float
-
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  price      Float
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model Refund {
@@ -96,4 +117,46 @@ model Refund {
   refundedBy      String
   refundedAt      DateTime @default(now())
   paymentRefundId String?
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String
+  amount        Float
+  method        String
+  status        String
+  transactionId String?
+  note          String?
+  createdAt     DateTime @default(now())
+}
+
+model RateLimit {
+  id           String    @id @default(uuid())
+  ip           String
+  endpoint     String
+  attempts     Int       @default(0)
+  blockedUntil DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([ip, endpoint])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model StoreSettings {
+  id         String   @id @default("global")
+  name       String   @default("PoS Warkop")
+  address    String?
+  phone      String?
+  taxPercent Float    @default(10.0)
+  footerText String?  @default("Terima Kasih Atas Kunjungan Anda")
+  updatedAt  DateTime @updatedAt
 }

@@ -50,13 +50,11 @@ export function Receipt({ order, paymentMethod, cashierName }: ReceiptProps) {
           <span>{cashierName || "Admin"}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Stand/Meja:</span>
+          <span>Lokasi:</span>
           <span>
-            {order.orderType === "dine-in" && order.standId
-              ? `#${order.standId.slice(-2)}`
-              : order.orderType === "take-away"
-              ? order.queueNumber || "-"
-              : order.tableId?.slice(-2) || "-"}
+            {order.orderType === "dine-in" 
+              ? (order.stand ? `Stand #${order.stand.standNumber}` : (order.table ? order.table.tableNumber : '-'))
+              : `Antrian #${order.queueNumber || "-"}`}
           </span>
         </div>
       </div>

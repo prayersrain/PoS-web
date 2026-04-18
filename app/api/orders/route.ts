@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-server";
+import { broadcastOrderUpdate } from "@/app/api/sse/orders/route";
 
 export async function GET(request: Request) {
   try {
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "50");
     const status = searchParams.get("status");
@@ -20,6 +27,8 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {
+        stand: true,
+        table: true,
         items: {
           include: {
             menuItem: true,
@@ -48,21 +57,37 @@ export async function POST(request: Request) {
       createdBy,
     } = body;
 
-    // Calculate totals
+    // Validate items data and look up prices from DB
     let subtotal = 0;
-    const orderItems = items.map((item: any) => {
-      const itemSubtotal = item.price * item.quantity;
+    const validatedItems: any[] = [];
+    for (const item of items) {
+      if (!item.menuItemId || !item.quantity || item.quantity < 1) {
+        return NextResponse.json({ error: "Invalid item data" }, { status: 400 });
+      }
+
+      const menuItem = await prisma.menuItem.findUnique({ where: { id: item.menuItemId } });
+      if (!menuItem || !menuItem.isAvailable) {
+        return NextResponse.json({ error: `Menu item ${item.menuItemId} not found or unavailable` }, { status: 400 });
+      }
+
+      const itemSubtotal = menuItem.price * item.quantity;
       subtotal += itemSubtotal;
-      return {
+      validatedItems.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         note: item.note || null,
         subtotal: itemSubtotal,
-      };
-    });
+        price: menuItem.price,
+      });
+    }
 
-    const tax = subtotal * 0.10; // 10% tax
-    const totalAmount = subtotal + tax;
+    const tax = Math.round(subtotal * 0.10 * 100) / 100; // 10% tax, rounded to 2 decimals
+    const totalAmount = Math.round((subtotal + tax) * 100) / 100;
+
+    // Generate queue number for take-away orders
+    const queueNumber = orderType === "take-away"
+      ? await generateQueueNumber()
+      : null;
 
     // Create order
     const order = await prisma.order.create({
@@ -74,16 +99,19 @@ export async function POST(request: Request) {
         // QR orders start as 'awaiting_payment' so they don't appear in kitchen yet
         status: orderSource === "qr" ? "awaiting_payment" : "pending",
         paymentStatus: "unpaid",
+        queueNumber,
         subtotal,
         tax,
         totalAmount,
         customerNote: customerNote || null,
         createdBy,
         items: {
-          create: orderItems,
+          create: validatedItems,
         },
       },
       include: {
+        stand: true,
+        table: true,
         items: {
           include: {
             menuItem: true,
@@ -96,13 +124,52 @@ export async function POST(request: Request) {
     if (standId) {
       await prisma.stand.update({
         where: { id: standId },
-        data: { isActive: true, orderId: order.id },
+        data: { isActive: true, currentOrderId: order.id },
       });
+      // Re-fetch order to include newly linked stand data
+      const finalOrder = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          stand: true,
+          table: true,
+          items: {
+            include: {
+              menuItem: true,
+            },
+          },
+        },
+      });
+      if (finalOrder) {
+        broadcastOrderUpdate({ type: "new_order", order: finalOrder });
+        return NextResponse.json(finalOrder);
+      }
     }
+
+    broadcastOrderUpdate({ type: "new_order", order });
 
     return NextResponse.json(order);
   } catch (error) {
     console.error("Error creating order:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+// Generate auto-incrementing queue number for take-away orders (resets daily)
+async function generateQueueNumber(): Promise<string> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const count = await prisma.order.count({
+    where: {
+      orderType: "take-away",
+      createdAt: {
+        gte: today,
+        lt: tomorrow,
+      },
+    },
+  });
+
+  return String(count + 1).padStart(3, "0");
 }

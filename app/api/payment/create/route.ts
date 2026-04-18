@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createQRISPayment } from "@/lib/midtrans";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-server";
 
 export async function POST(request: Request) {
   try {
+    // Allow both authenticated staff and QR customers
+    const session = await requireAuth();
     const body = await request.json();
     const { orderId } = body;
 
@@ -45,11 +48,16 @@ export async function POST(request: Request) {
     });
 
     // Update order with payment info
+    // If this was a QR order, change status from 'awaiting_payment' to 'pending'
+    // so it appears in the kitchen display system immediately
+    const newStatus = order.status === "awaiting_payment" ? "pending" : undefined;
+
     await prisma.order.update({
       where: { id: orderId },
       data: {
         paymentStatus: "unpaid",
         paymentId: payment.token,
+        ...(newStatus && { status: newStatus }),
       },
     });
 

@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { broadcastOrderUpdate } from "@/app/api/sse/orders/route";
+import { requireAuth } from "@/lib/auth-server";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const { items } = await request.json();
 
@@ -35,8 +41,8 @@ export async function POST(
 
     // Calculate new totals
     const newOrderSubtotal = order.subtotal + newSubtotal;
-    const newOrderTax = newOrderSubtotal * 0.10;
-    const newOrderTotal = newOrderSubtotal + newOrderTax;
+    const newOrderTax = Math.round(newOrderSubtotal * 0.10 * 100) / 100;
+    const newOrderTotal = Math.round((newOrderSubtotal + newOrderTax) * 100) / 100;
 
     // Add items to order
     await prisma.orderItem.createMany({

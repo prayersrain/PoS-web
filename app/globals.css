@@ -1,23 +1,60 @@
 @import "tailwindcss";
 
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
-  --color-background: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-foreground: #111827;
-  --color-primary: #DC2626;
-  --color-primary-hover: #B91C1C;
-  --color-primary-light: #FEF2F2;
-  --color-success: #16A34A;
-  --color-success-light: #F0FDF4;
-  --color-warning: #F59E0B;
-  --color-warning-light: #FFFBEB;
-  --color-info: #3B82F6;
-  --color-info-light: #EFF6FF;
-  --color-border: #E5E7EB;
-  --color-text-secondary: #6B7280;
-  --color-text-muted: #9CA3AF;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #4F46E5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #4F46E5;
+  --radius: 0.75rem;
 }
 
 body {
@@ -43,19 +80,35 @@ body {
   background: #9CA3AF;
 }
 
-/* Print styles for receipts */
+/* Print styles for thermal receipts */
+.print-only {
+  display: none;
+}
+
 @media print {
+  @page {
+    margin: 0;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
   body * {
     visibility: hidden;
   }
-  .receipt-print, .receipt-print * {
+  .print-only, .print-only * {
     visibility: visible;
   }
-  .receipt-print {
+  .print-only {
+    display: block !important;
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 58mm; /* Adjust for thermal printer */
+    margin: 0;
+    padding: 2mm;
+    background: white;
   }
   .no-print {
     display: none !important;

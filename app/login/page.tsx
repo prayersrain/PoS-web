@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Monitor, Lock, User as UserIcon } from "lucide-react";
+import { siteConfig } from "@/lib/site-config";
 import { setSession } from "@/lib/auth";
-import { Coffee, Lock, User } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -35,6 +36,8 @@ export default function LoginPage() {
 
       if (data.role === "kitchen") {
         router.push("/kitchen");
+      } else if (data.role === "kasir") {
+        router.push("/kasir");
       } else {
         router.push("/admin");
       }
@@ -48,39 +51,39 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-white">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-red-600 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-indigo-600 relative overflow-hidden">
         {/* Decorative circles */}
-        <div className="absolute top-20 left-20 w-64 h-64 bg-red-500 rounded-full opacity-20 blur-3xl" />
-        <div className="absolute bottom-40 right-10 w-96 h-96 bg-red-700 rounded-full opacity-20 blur-3xl" />
+        <div className="absolute top-20 left-20 w-64 h-64 bg-indigo-500 rounded-full opacity-20 blur-3xl" />
+        <div className="absolute bottom-40 right-10 w-96 h-96 bg-indigo-700 rounded-full opacity-20 blur-3xl" />
         
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-              <Coffee className="w-8 h-8 text-red-600" />
+              <Monitor className="w-8 h-8 text-indigo-600" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold mb-4">Warkoem Pul</h1>
-          <p className="text-xl text-red-100 mb-8 leading-relaxed">
-            Sistem Point of Sale modern untuk manajemen pesanan, pembayaran, dan dapur yang efisien.
+          <h1 className="text-5xl font-bold mb-4">{siteConfig.name}</h1>
+          <p className="text-xl text-indigo-100 mb-8 leading-relaxed">
+            {siteConfig.description}
           </p>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
                 <span className="text-sm font-bold">1</span>
               </div>
-              <span className="text-red-100">Scan QR Code untuk pesan</span>
+              <span className="text-indigo-100">Scan QR Code untuk pesan</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
                 <span className="text-sm font-bold">2</span>
               </div>
-              <span className="text-red-100">Bayar online atau di kasir</span>
+              <span className="text-indigo-100">Bayar online atau di kasir</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
                 <span className="text-sm font-bold">3</span>
               </div>
-              <span className="text-red-100">Pesanan langsung ke dapur</span>
+              <span className="text-indigo-100">Pesanan langsung ke dapur</span>
             </div>
           </div>
         </div>
@@ -91,10 +94,10 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center">
-              <Coffee className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <Monitor className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Warkoem Pul</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{siteConfig.name}</h1>
           </div>
 
           <div className="text-center mb-8">
@@ -115,12 +118,12 @@ export default function LoginPage() {
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   placeholder="Masukkan username"
                   required
                 />
@@ -137,7 +140,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   placeholder="Masukkan password"
                   required
                 />
@@ -147,7 +150,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-600/25 hover:shadow-red-600/40 active:scale-[0.98]"
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 active:scale-[0.98]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -161,14 +164,14 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 p-4 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 text-center mb-3">Default credentials:</p>
+            <p className="text-xs text-gray-500 text-center mb-3">Kredensial bawaan:</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <p className="text-xs font-medium text-red-600">Kasir</p>
+                <p className="text-xs font-medium text-indigo-600">Kasir</p>
                 <p className="text-xs text-gray-500 mt-1">kasir / kasir123</p>
               </div>
               <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <p className="text-xs font-medium text-blue-600">Kitchen</p>
+                <p className="text-xs font-medium text-blue-600">Dapur</p>
                 <p className="text-xs text-gray-500 mt-1">kitchen / kitchen123</p>
               </div>
             </div>

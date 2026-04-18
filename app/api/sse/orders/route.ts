@@ -1,30 +1,63 @@
 import { NextResponse } from "next/server";
 
-// Store active connections
-const clients = new Set<ReadableStreamDefaultController>();
+// Store active connections with metadata for cleanup
+interface ClientInfo {
+  controller: ReadableStreamDefaultController;
+  lastSeen: number;
+}
+
+const clients = new Set<ClientInfo>();
+const MAX_CLIENTS = 100;
+const STALE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+// Cleanup stale connections periodically
+let lastCleanup = 0;
+function cleanupStaleClients() {
+  const now = Date.now();
+  if (now - lastCleanup < 60000) return; // Run cleanup at most every 1 minute
+  lastCleanup = now;
+
+  for (const client of clients) {
+    if (now - client.lastSeen > STALE_TIMEOUT) {
+      clients.delete(client);
+    }
+  }
+}
 
 // Function to broadcast to all clients
 export function broadcastOrderUpdate(data: any) {
   const message = `data: ${JSON.stringify(data)}\n\n`;
   const encoder = new TextEncoder();
-  
-  clients.forEach((client) => {
+
+  cleanupStaleClients();
+
+  const deadClients: ClientInfo[] = [];
+  for (const client of clients) {
     try {
-      client.enqueue(encoder.encode(message));
+      client.controller.enqueue(encoder.encode(message));
+      client.lastSeen = Date.now();
     } catch {
-      // Client disconnected, remove from set
-      clients.delete(client);
+      deadClients.push(client);
     }
-  });
+  }
+
+  for (const client of deadClients) {
+    clients.delete(client);
+  }
 }
 
 export async function GET() {
   const encoder = new TextEncoder();
 
+  // Prevent unbounded growth
+  if (clients.size >= MAX_CLIENTS) {
+    return new NextResponse("Too many connections", { status: 503 });
+  }
+
   const stream = new ReadableStream({
     start(controller) {
-      // Add client to set
-      clients.add(controller);
+      const clientInfo: ClientInfo = { controller, lastSeen: Date.now() };
+      clients.add(clientInfo);
 
       // Send initial connection message
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected" })}\n\n`));
@@ -33,16 +66,17 @@ export async function GET() {
       const heartbeat = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "heartbeat" })}\n\n`));
+          clientInfo.lastSeen = Date.now();
         } catch {
           clearInterval(heartbeat);
-          clients.delete(controller);
+          clients.delete(clientInfo);
         }
       }, 30000);
 
       // Cleanup on close
       return () => {
         clearInterval(heartbeat);
-        clients.delete(controller);
+        clients.delete(clientInfo);
       };
     },
   });

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Clock, ChefHat, CheckCircle, AlertCircle } from "lucide-react";
+import { LogOut, Clock, ChefHat, CheckCircle, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { useOrderUpdates } from "@/hooks/useOrderUpdates";
 import { getSessionClient, clearSessionClient } from "@/lib/auth";
+import { siteConfig } from "@/lib/site-config";
+import { playNotificationSound } from "@/lib/sounds";
 
 interface Order {
   id: string;
@@ -13,11 +15,14 @@ interface Order {
   orderSource: string;
   orderType: string;
   status: string;
+  paymentStatus: string;
   queueNumber: string | null;
   totalAmount: number;
   customerNote: string | null;
   createdAt: string;
   items: OrderItem[];
+  stand?: { standNumber: number };
+  table?: { tableNumber: string };
 }
 
 interface OrderItem {
@@ -34,8 +39,8 @@ function OrderCard({ order, actionLabel, actionColor, onAction }: any) {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = Math.floor((now.getTime() - date.getTime()) / 60000);
-    if (diff < 1) return "Just now";
-    if (diff < 60) return `${diff}m ago`;
+    if (diff < 1) return "Baru saja";
+    if (diff < 60) return `${diff}m lalu`;
     return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   };
 
@@ -53,21 +58,17 @@ function OrderCard({ order, actionLabel, actionColor, onAction }: any) {
       <div className="flex items-center justify-between p-4 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm ${
-            order.orderType === "dine-in" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+            order.orderType === "dine-in" ? "bg-indigo-100 text-indigo-700" : "bg-blue-100 text-blue-700"
           }`}>
-            {order.orderType === "dine-in" && order.standId
-              ? `S${order.standId.slice(-2)}`
-              : order.orderType === "take-away"
-              ? `Q${order.queueNumber}`
-              : `T${order.tableId?.slice(-2)}`}
+            {order.orderType === "dine-in" 
+              ? (order.stand ? `S${order.stand.standNumber}` : (order.table ? order.table.tableNumber : '-'))
+              : "Q0"}
           </div>
           <div>
             <p className="font-semibold text-gray-900">
-              {order.orderType === "dine-in" && order.standId
-                ? `Stand #${order.standId.slice(-2)}`
-                : order.orderType === "take-away"
-                ? `Queue ${order.queueNumber}`
-                : `Table ${order.tableId?.slice(-2)}`}
+              {order.orderType === "dine-in" 
+                ? (order.stand ? `Stand #${order.stand.standNumber}` : (order.table ? `Meja ${order.table.tableNumber}` : 'No Table'))
+                : `Queue ${order.queueNumber || '0'}`}
             </p>
             <p className={`text-xs ${getElapsedColor(order.createdAt)}`}>
               {formatTime(order.createdAt)} • {order.orderSource === "qr" ? "QR" : "Walk-in"}
@@ -80,7 +81,7 @@ function OrderCard({ order, actionLabel, actionColor, onAction }: any) {
       <div className="p-4 space-y-2">
         {order.items.map((item: OrderItem) => (
           <div key={item.id} className="flex items-start gap-2">
-            <span className="bg-red-600 text-white text-xs font-bold w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5">
+            <span className="bg-indigo-600 text-white text-xs font-bold w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5">
               {item.quantity}
             </span>
             <div className="flex-1 min-w-0">
@@ -170,7 +171,7 @@ function Column({ title, icon, orders, color, status, onAction }: any) {
             <div className={`${theme.iconBg} w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3`}>
               {icon}
             </div>
-            <p className={`text-sm ${theme.text} font-medium`}>No orders</p>
+            <p className={`text-sm ${theme.text} font-medium`}>Belum ada pesanan</p>
           </div>
         ) : (
           orders.map((order: Order) => (
@@ -179,10 +180,10 @@ function Column({ title, icon, orders, color, status, onAction }: any) {
               order={order}
               actionLabel={
                 status === "pending"
-                  ? "Start Preparing"
+                  ? "Mulai Masak"
                   : status === "preparing"
-                  ? "Mark Ready"
-                  : "Mark Served"
+                  ? "Siap Disajikan"
+                  : "Sudah Diantar"
               }
               actionColor={
                 status === "pending"
@@ -207,15 +208,36 @@ export default function KitchenPage() {
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
   const [user, setUser] = useState<{ name: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const prevPendingCountRef = useRef(0);
+  const initialLoadRef = useRef(true);
 
   const fetchOrders = async () => {
     try {
       const res = await fetch("/api/orders");
+      if (!res.ok) return;
       const data = await res.json();
+      if (!Array.isArray(data)) return;
 
-      setPendingOrders(data.filter((o: Order) => o.status === "pending"));
-      setPreparingOrders(data.filter((o: Order) => o.status === "preparing"));
-      setReadyOrders(data.filter((o: Order) => o.status === "ready"));
+      // Only show PAID orders in kitchen
+      const paidOrders = data.filter((o: Order) => o.paymentStatus === "paid");
+
+      const newPending = paidOrders.filter((o: Order) => o.status === "pending");
+      const newPreparing = paidOrders.filter((o: Order) => o.status === "preparing");
+      const newReady = paidOrders.filter((o: Order) => o.status === "ready");
+
+      // Play sound if new pending orders arrived (skip initial load)
+      if (!initialLoadRef.current && newPending.length > prevPendingCountRef.current) {
+        if (!muted) {
+          playNotificationSound();
+        }
+      }
+      initialLoadRef.current = false;
+      prevPendingCountRef.current = newPending.length;
+
+      setPendingOrders(newPending);
+      setPreparingOrders(newPreparing);
+      setReadyOrders(newReady);
     } catch (e) {
       console.error("Failed to fetch orders:", e);
     } finally {
@@ -269,7 +291,7 @@ export default function KitchenPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 border-3 border-red-200 border-t-red-600 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           <span className="text-gray-500">Loading Kitchen...</span>
         </div>
       </div>
@@ -281,19 +303,30 @@ export default function KitchenPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/20">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
             <ChefHat className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Kitchen Display</h1>
-            <p className="text-xs text-gray-500">Warkoem Pul</p>
+            <h1 className="text-lg font-bold text-gray-900">Tampilan Dapur</h1>
+            <p className="text-xs text-gray-500">{siteConfig.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setMuted(!muted)}
+            className={`p-2.5 rounded-xl transition-colors ${
+              muted
+                ? "text-red-400 hover:text-red-600 hover:bg-red-50"
+                : "text-green-500 hover:text-green-600 hover:bg-green-50"
+            }`}
+            title={muted ? "Aktifkan suara" : "Matikan suara"}
+          >
+            {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </button>
           <span className="text-sm text-gray-500">{user.name}</span>
           <button
             onClick={handleLogout}
-            className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+            className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -303,7 +336,7 @@ export default function KitchenPage() {
       {/* Columns Grid */}
       <main className="flex-1 p-4 grid grid-cols-3 gap-4 overflow-hidden">
         <Column
-          title="Pending"
+          title="Menunggu"
           icon={<Clock className="w-5 h-5 text-yellow-600" />}
           orders={pendingOrders}
           color="yellow"
@@ -311,7 +344,7 @@ export default function KitchenPage() {
           onAction={(id: string) => updateOrderStatus(id, "preparing")}
         />
         <Column
-          title="Preparing"
+          title="Dimasak"
           icon={<ChefHat className="w-5 h-5 text-blue-600" />}
           orders={preparingOrders}
           color="blue"
@@ -319,7 +352,7 @@ export default function KitchenPage() {
           onAction={(id: string) => updateOrderStatus(id, "ready")}
         />
         <Column
-          title="Ready"
+          title="Siap"
           icon={<CheckCircle className="w-5 h-5 text-green-600" />}
           orders={readyOrders}
           color="green"

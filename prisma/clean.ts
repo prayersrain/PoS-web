@@ -19,7 +19,7 @@ async function main() {
 
   // Reset all stands to inactive
   await prisma.stand.updateMany({
-    data: { isActive: false, orderId: null },
+    data: { isActive: false, currentOrderId: null },
   });
   console.log("✅ Stands reset");
 

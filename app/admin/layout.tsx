@@ -3,50 +3,74 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  UtensilsCrossed,
-  Table,
-  QrCode,
-  Clock,
-  BarChart3,
-  LogOut,
-  Menu,
+import { 
+  LayoutDashboard, 
+  UtensilsCrossed, 
+  BarChart3, 
+  Settings,
+  LogOut, 
+  Menu as MenuIcon, 
   X,
-  Coffee,
-  ChevronLeft,
-  ChevronRight,
+  ShieldCheck,
+  TrendingUp,
+  FileText
 } from "lucide-react";
+import { siteConfig } from "@/lib/site-config";
 import { getSessionClient, clearSessionClient } from "@/lib/auth";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/admin/stands", label: "Stands", icon: Table },
-  { href: "/admin/tables", label: "Tables & QR", icon: QrCode },
-  { href: "/admin/shift", label: "Shift", icon: Clock },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin", label: "Ringkasan Finansial", icon: TrendingUp },
+  { href: "/admin/menu", label: "Manajemen Menu", icon: UtensilsCrossed },
+  { href: "/admin/reports", label: "Laporan & Laba", icon: BarChart3 },
+  { href: "/admin/settings", label: "Profil Warkop", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
 
   useEffect(() => {
-    const session = getSessionClient();
-    if (!session) {
-      router.push("/login");
-    } else if (session.role !== "kasir") {
-      router.push("/kitchen");
-    } else {
-      setUser(session);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) {
+          clearSessionClient();
+          router.push("/login");
+          return;
+        }
+        const data = await res.json();
+        if (!data.authenticated || data.user.role !== "admin") {
+          if (data.user?.role === "kasir") {
+             router.push("/kasir");
+             return;
+          }
+          clearSessionClient();
+          router.push("/login");
+          return;
+        }
+        setUser(data.user);
+      } catch {
+        router.push("/login");
+      }
+    };
+    checkAuth();
+  }, [router, pathname]);
+
+  // Effect to close sidebar on navigation (mobile)
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
     }
-  }, [router]);
+  }, [pathname]);
+
+  // Initial viewport check
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+       setSidebarOpen(false);
+    }
+  }, []);
 
   const handleLogout = () => {
     clearSessionClient();
@@ -57,52 +81,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 border-3 border-red-200 border-t-red-600 rounded-full animate-spin" />
-          <span className="text-gray-500">Loading...</span>
+          <div className="w-8 h-8 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+          <span className="text-gray-500 font-bold uppercase tracking-widest text-xs">Memasuki Area Manajemen...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 ${collapsed ? "w-20" : "w-64"}`}
-      >
+    <div className="h-screen bg-gray-50 flex overflow-hidden font-sans">
+      {/* Mobile Backdrop Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Managerial / Premium Dark Style */}
+      <aside className={`fixed inset-y-0 left-0 z-50 bg-[#0f172a] border-r border-slate-800 transition-all duration-300 ease-in-out w-64 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} p-5 border-b border-gray-100`}>
-            {!collapsed && (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/20">
-                  <Coffee className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">Warkoem Pul</h1>
-                  <p className="text-xs text-gray-400">POS System</p>
-                </div>
+          <div className="p-6 border-b border-slate-800 bg-[#1e293b]/50 flex items-center justify-between lg:block">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-            )}
-            {collapsed && (
-              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
-                <Coffee className="w-5 h-5 text-white" />
+              <div className="text-white">
+                <h1 className="text-sm font-black tracking-tighter uppercase italic text-emerald-400">OWNER PANEL</h1>
+                <p className="text-[10px] text-slate-400 font-bold tracking-widest leading-none mt-0.5">ADMINISTRATION</p>
               </div>
-            )}
-            {!collapsed && (
-              <button
-                onClick={() => setCollapsed(true)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors hidden lg:block"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            )}
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white">
+               <X className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-3 space-y-1">
+          <nav className="flex-1 p-4 space-y-2 mt-4 overflow-y-auto scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -110,34 +124,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex items-center gap-3 px-4 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
                     isActive
-                      ? "bg-red-50 text-red-600 shadow-sm"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  } ${collapsed ? "justify-center" : ""}`}
-                  title={collapsed ? item.label : undefined}
+                      ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? "text-red-600" : ""}`} />
-                  {!collapsed && <span>{item.label}</span>}
+                  <Icon className="w-5 h-5" />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          {/* User info & logout */}
-          <div className="p-3 border-t border-gray-100">
-            <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} gap-3`}>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-                  <p className="text-xs text-gray-400 capitalize">{user.role}</p>
+          <div className="p-6 border-t border-slate-800">
+             <div className="bg-slate-800/50 rounded-2xl p-4 mb-4 hidden xs:block">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-2 text-center sm:text-left">Status Bisnis</p>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                   <span className="text-xs text-slate-300 font-bold">Operasional Aktif</span>
                 </div>
-              )}
-              <button
-                onClick={handleLogout}
-                className={`p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors`}
-                title="Logout"
-              >
+             </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-white truncate">{user.name}</p>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none mt-1">Super Admin</p>
+              </div>
+              <button onClick={handleLogout} className="p-3 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -145,46 +159,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? (collapsed ? "lg:ml-20" : "lg:ml-64") : ""}`}>
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-gray-200">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      {/* Content Area */}
+      <div className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : "lg:ml-0"}`}>
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 md:px-8 py-4 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
+                 <MenuIcon className="w-6 h-6" />
               </button>
-              {collapsed && (
-                <button
-                  onClick={() => setCollapsed(false)}
-                  className="hidden lg:block p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">
-                {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-              </span>
-            </div>
-          </div>
+              <h2 className="text-[10px] md:text-xs font-black text-slate-900 uppercase tracking-[0.2em] md:tracking-[0.3em] font-mono truncate">
+                 {siteConfig.name.toUpperCase()} • ADMIN
+              </h2>
+           </div>
+           
+           <div className="flex items-center gap-3 md:gap-6">
+              <div className="hidden sm:flex flex-col items-end">
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-snug">
+                    {new Date().toLocaleDateString('id-ID', { weekday: 'long' })}
+                 </span>
+                 <span className="text-xs font-black text-slate-800 leading-none">
+                    {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                 </span>
+              </div>
+           </div>
         </header>
-
-        {/* Page content */}
-        <main className="p-6">{children}</main>
+        <main className="p-4 md:p-8 pb-32 animate-in fade-in slide-in-from-bottom-2 duration-700">
+           {children}
+        </main>
       </div>
-
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
     </div>
   );
 }

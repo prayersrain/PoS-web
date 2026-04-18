@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useCallback } from "react";
 
 export function useOrderUpdates(onUpdate: (data: any) => void) {

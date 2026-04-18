@@ -17,7 +17,9 @@ export default function QueueDisplay() {
   const fetchOrders = async () => {
     try {
       const res = await fetch("/api/orders");
+      if (!res.ok) return;
       const data = await res.json();
+      if (!Array.isArray(data)) return;
       setOrders(
         data.filter(
           (o: Order) =>

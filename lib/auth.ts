@@ -5,7 +5,7 @@ export interface User {
   id: string;
   username: string;
   name: string;
-  role: "kasir" | "kitchen";
+  role: "admin" | "kasir" | "kitchen";
 }
 
 export function setSession(user: User) {

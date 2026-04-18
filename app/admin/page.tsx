@@ -3,17 +3,19 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useOrderUpdates } from "@/hooks/useOrderUpdates";
+import { getSessionClient, User } from "@/lib/auth";
 import {
-  ShoppingCart,
-  Clock,
-  CheckCircle,
-  Plus,
-  QrCode,
   TrendingUp,
-  Users,
-  Package,
   ArrowUpRight,
+  Package,
+  ClipboardList,
+  UtensilsCrossed,
+  Settings,
+  BarChart3,
+  Users,
+  Wallet
 } from "lucide-react";
+import React from "react";
 
 interface OrderStats {
   total: number;
@@ -24,7 +26,10 @@ interface OrderStats {
   todayRevenue: number;
 }
 
-export default function AdminDashboard() {
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export default function AdminDashboardPage() {
+  const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     pending: 0,
@@ -36,41 +41,33 @@ export default function AdminDashboard() {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const handleOrderUpdate = useCallback(() => {
-    fetchStats();
-    fetchRecentOrders();
-  }, []);
-
-  useOrderUpdates(handleOrderUpdate);
-
-  useEffect(() => {
-    fetchStats();
-    fetchRecentOrders();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/reports/stats");
-      if (!res.ok) return;
-      const data = await res.json();
-      setStats(data);
-    } catch (e) {
-      console.error("Failed to fetch stats:", e);
-    }
-  };
+      const session = getSessionClient();
+      setUser(session);
 
-  const fetchRecentOrders = async () => {
-    try {
-      const res = await fetch("/api/orders?limit=10");
-      if (!res.ok) return;
-      const data = await res.json();
-      setRecentOrders(data);
+      const [statsRes, ordersRes] = await Promise.all([
+        fetch("/api/reports/stats"),
+        fetch("/api/orders?limit=10"),
+      ]);
+
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (ordersRes.ok) {
+        const data = await ordersRes.json();
+        setRecentOrders(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
-      console.error("Failed to fetch orders:", e);
+      console.error("Failed to fetch admin dashboard data:", e);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useOrderUpdates(fetchData);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -80,188 +77,164 @@ export default function AdminDashboard() {
     }).format(amount);
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-      preparing: "bg-blue-50 text-blue-700 border-blue-200",
-      ready: "bg-green-50 text-green-700 border-green-200",
-      served: "bg-gray-50 text-gray-600 border-gray-200",
-      cancelled: "bg-red-50 text-red-700 border-red-200",
-    };
+  if (loading) {
     return (
-      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles.served}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
+      <div className="h-96 flex flex-col items-center justify-center text-muted-foreground gap-4">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <p className="font-bold uppercase tracking-widest text-[10px]">Menganalisis Data Finansial...</p>
+      </div>
     );
-  };
-
-  const getPaymentBadge = (paymentStatus: string) => {
-    if (paymentStatus === "paid") {
-      return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">Paid</span>;
-    }
-    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">Unpaid</span>;
-  };
-
-  const statsCards = [
-    {
-      label: "Pending Orders",
-      value: stats.pending,
-      icon: Clock,
-      color: "yellow",
-      bg: "bg-yellow-50",
-      iconBg: "bg-yellow-100",
-      iconColor: "text-yellow-600",
-    },
-    {
-      label: "Preparing",
-      value: stats.preparing,
-      icon: Package,
-      color: "blue",
-      bg: "bg-blue-50",
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-    },
-    {
-      label: "Ready",
-      value: stats.ready,
-      icon: CheckCircle,
-      color: "green",
-      bg: "bg-green-50",
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-    },
-    {
-      label: "Today's Revenue",
-      value: formatCurrency(stats.todayRevenue),
-      icon: TrendingUp,
-      color: "red",
-      bg: "bg-red-50",
-      iconBg: "bg-red-100",
-      iconColor: "text-red-600",
-    },
-  ];
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Overview of today&apos;s operations</p>
-        </div>
-        <div className="flex gap-3">
-          <Link
-            href="/admin/orders?action=new-qr"
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 rounded-xl transition-all hover:shadow-sm"
-          >
-            <QrCode className="w-4 h-4" />
-            QR Order
-          </Link>
-          <Link
-            href="/admin/orders?action=new-walkin"
-            className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all shadow-lg shadow-red-600/20 hover:shadow-red-600/30"
-          >
-            <Plus className="w-4 h-4" />
-            New Order
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-10 fade-in animate-in">
+      {/* Financial Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[2.5rem] border-0 shadow-2xl relative overflow-hidden">
+          <CardContent className="p-10">
+            <div className="absolute top-0 right-0 p-10 opacity-5">
+              <TrendingUp className="w-32 h-32" />
+            </div>
+            <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mb-4">Total Omset Hari Ini</p>
+            <div className="flex items-end gap-3 mb-6">
+               <h3 className="text-5xl font-black tracking-tighter leading-none">{formatCurrency(stats.todayRevenue)}</h3>
+               <span className="text-emerald-400 text-sm font-black flex items-center mb-1">
+                  <ArrowUpRight className="w-4 h-4" /> 8.4%
+               </span>
+            </div>
+            <div className="flex gap-4">
+               <Link href="/admin/reports" className="px-6 py-3 bg-white/10 hover:bg-white/20 transition-all rounded-2xl text-xs font-black uppercase tracking-widest">
+                  Detail Laporan
+               </Link>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((card, index) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={index}
-              className={`${card.bg} rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`${card.iconBg} p-3 rounded-xl`}>
-                  <Icon className={`w-5 h-5 ${card.iconColor}`} />
-                </div>
-                {card.color === "red" && (
-                  <span className="text-green-600 text-xs font-medium flex items-center gap-1">
-                    <ArrowUpRight className="w-3 h-3" />
-                    +12%
-                  </span>
-                )}
+        <Card className="rounded-[2.5rem] border-muted shadow-sm group hover:border-emerald-500 transition-all">
+          <CardContent className="p-8 h-full flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                 <Package className="w-6 h-6" />
               </div>
-              <p className="text-sm text-gray-600 mb-1">{card.label}</p>
-              <p className={`text-2xl font-bold ${card.color === "red" ? "text-gray-900" : `text-${card.color}-700`}`}>
-                {card.value}
-              </p>
+              <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px] mb-1">Pesanan Sukses</p>
+              <h3 className="text-3xl font-black text-foreground">{stats.served}</h3>
             </div>
-          );
-        })}
+            <p className="text-[10px] text-muted-foreground font-bold uppercase mt-4 italic">Total pesanan selesai</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[2.5rem] border-muted shadow-sm group hover:border-emerald-500 transition-all">
+          <CardContent className="p-8 h-full flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                 <Wallet className="w-6 h-6" />
+              </div>
+              <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px] mb-1">Transaksi Aktif</p>
+              <h3 className="text-3xl font-black text-foreground">{stats.pending + stats.preparing + stats.ready}</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase mt-4 italic">Sedang dalam proses</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recent Orders */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
-        </div>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="p-12 text-center text-gray-400">
-              <div className="w-8 h-8 border-3 border-red-200 border-t-red-600 rounded-full animate-spin mx-auto mb-3" />
-              Loading orders...
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Transactions List */}
+        <Card className="lg:col-span-2 rounded-[2.5rem] border-muted shadow-sm overflow-hidden">
+          <CardHeader className="p-8 border-b border-border flex flex-row items-center justify-between pb-8">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="w-6 h-6 text-muted-foreground" />
+              <CardTitle className="font-black text-xl text-foreground tracking-tight">Transaksi Terakhir</CardTitle>
             </div>
-          ) : recentOrders.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>No orders yet</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100">
-                  <th className="px-6 py-4">Order ID</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Stand/Table</th>
-                  <th className="px-6 py-4">Items</th>
-                  <th className="px-6 py-4">Total</th>
-                  <th className="px-6 py-4">Payment</th>
-                  <th className="px-6 py-4">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-mono font-medium text-gray-900">
-                        #{order.id.slice(-6).toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                        order.orderSource === "qr"
-                          ? "bg-purple-50 text-purple-700"
-                          : "bg-blue-50 text-blue-700"
-                      }`}>
-                        {order.orderSource === "qr" ? "QR" : "Walk-in"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {order.orderType === "dine-in"
-                        ? `Stand #${order.standId?.slice(-2) || "-"}`
-                        : order.orderType === "take-away"
-                        ? `Queue ${order.queueNumber || "-"}`
-                        : `Table ${order.tableId?.slice(-2) || "-"}`}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {order.items?.length || 0} items
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      {formatCurrency(order.totalAmount)}
-                    </td>
-                    <td className="px-6 py-4">{getPaymentBadge(order.paymentStatus)}</td>
-                    <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
+            <Link href="/admin/reports" className="text-xs font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
+              Analisis Lengkap
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            {recentOrders.length === 0 ? (
+              <div className="py-20 text-center text-[10px] font-black tracking-widest text-muted-foreground uppercase">Belum ada data transaksi</div>
+            ) : (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] border-b border-border">
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Items</th>
+                    <th className="px-6 py-4 text-right">Nilai</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-muted/50 transition-all group">
+                      <td className="px-6 py-5">
+                        <span className={`inline-flex px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${
+                          order.status === 'served' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="text-[11px] font-black text-foreground uppercase tracking-tight truncate max-w-[200px]">
+                           {order.items.map((i:any) => i.menuItem.name).join(", ")}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase">{new Date(order.createdAt).toLocaleTimeString()}</p>
+                      </td>
+                      <td className="px-6 py-5 text-right font-black text-foreground text-xs">
+                        {formatCurrency(order.totalAmount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Managerial Quick Actions */}
+        <div className="space-y-6">
+           <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-600/20">
+              <h3 className="font-black text-xl mb-4 italic tracking-tight">Kontrol Manajemen</h3>
+              <div className="grid grid-cols-1 gap-3">
+                 <Link href="/admin/menu" className="flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all group">
+                    <div className="flex items-center gap-3">
+                       <UtensilsCrossed className="w-5 h-5" />
+                       <span className="text-xs font-black uppercase tracking-widest text-white/90">Update Menu</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 </Link>
+                 <Link href="/admin/settings" className="flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all group">
+                    <div className="flex items-center gap-3">
+                       <Settings className="w-5 h-5" />
+                       <span className="text-xs font-black uppercase tracking-widest text-white/90">Ubah Profil</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 </Link>
+                 <Link href="/admin/reports" className="flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all group">
+                    <div className="flex items-center gap-3">
+                       <BarChart3 className="w-5 h-5" />
+                       <span className="text-xs font-black uppercase tracking-widest text-white/90">Laba Rugi</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 </Link>
+              </div>
+           </div>
+
+           <div className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                 <Users className="w-5 h-5 text-slate-400" />
+                 <h4 className="font-black text-sm uppercase tracking-widest text-slate-900">Aktivitas Tim</h4>
+              </div>
+              <div className="space-y-4">
+                 {[1].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                       <div className="w-8 h-8 bg-slate-100 rounded-full" />
+                       <div className="flex-1">
+                          <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Kasir Warkop</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">Shift Sedang Berjalan</p>
+                       </div>
+                       <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                    </div>
+                 ))}
+              </div>
+           </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,8 @@ interface Order {
     subtotal: number;
     menuItem: { name: string };
   }>;
+  stand?: { standNumber: number };
+  table?: { tableNumber: string };
 }
 
 interface PaymentModalProps {
@@ -104,7 +106,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
         <style>{printStyles}</style>
         <div className="bg-zinc-800 rounded-lg w-full max-w-md">
           <div className="flex items-center justify-between p-4 border-b border-zinc-700 no-print">
-            <h2 className="text-lg font-semibold text-white">Payment Successful</h2>
+            <h2 className="text-lg font-semibold text-white">Pembayaran Berhasil</h2>
             <button
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white"
@@ -135,13 +137,13 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
               >
                 <Printer className="w-4 h-4" />
-                Print Receipt
+                Cetak Nota
               </button>
               <button
                 onClick={onClose}
                 className="flex-1 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
               >
-                Close
+                Tutup
               </button>
             </div>
           </div>
@@ -156,7 +158,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
       <div className="bg-zinc-800 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-700">
-          <h2 className="text-xl font-bold text-white">Process Payment</h2>
+          <h2 className="text-xl font-bold text-white">Proses Pembayaran</h2>
           <button
             onClick={onClose}
             className="p-2 text-zinc-400 hover:text-white"
@@ -169,31 +171,33 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
           {/* Order Summary */}
           <div className="bg-zinc-700/50 rounded-lg p-4">
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-zinc-400">Order</span>
+              <span className="text-zinc-400">Pesanan</span>
               <span className="text-white">#{order.id.slice(-6).toUpperCase()}</span>
             </div>
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-zinc-400">Type</span>
-              <span className="text-white capitalize">{order.orderType}</span>
+              <span className="text-zinc-400">Tipe</span>
+              <span className="text-white capitalize">{order.orderType === "dine-in" ? "Makan di Tempat" : "Bawa Pulang"}</span>
             </div>
-            {order.orderType === "dine-in" && order.standId && (
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Stand</span>
-                <span className="text-white">#{order.standId.slice(-2)}</span>
-              </div>
-            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Lokasi</span>
+              <span className="text-white">
+                {order.orderType === "dine-in" 
+                  ? (order.stand ? `Stand #${order.stand.standNumber}` : (order.table ? order.table.tableNumber : '-'))
+                  : "Bawa Pulang"}
+              </span>
+            </div>
           </div>
 
           {/* Total */}
           <div className="text-center">
-            <p className="text-zinc-400 text-sm">Total Amount</p>
+            <p className="text-zinc-400 text-sm">Total Tagihan</p>
             <p className="text-3xl font-bold text-white">{formatCurrency(order.totalAmount)}</p>
           </div>
 
           {/* Payment Method */}
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Payment Method
+              Metode Pembayaran
             </label>
             <div className="grid grid-cols-3 gap-3">
               <button
@@ -204,7 +208,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
                     : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
                 }`}
               >
-                💵 Cash
+                💵 Tunai
               </button>
               <button
                 onClick={() => setPaymentMethod("debit")}
@@ -233,13 +237,13 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
           {paymentMethod === "cash" && (
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Cash Received
+                Uang yang Diterima
               </label>
               <input
                 type="number"
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="Masukkan jumlah"
                 className="w-full px-4 py-3 bg-zinc-700 border border-zinc-600 rounded text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500 text-lg"
               />
               {cashReceivedNum > 0 && (
@@ -253,13 +257,13 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
                     <span className="text-white">{formatCurrency(cashReceivedNum)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold">
-                    <span className="text-green-400">Change:</span>
+                    <span className="text-green-400">Kembalian:</span>
                     <span className={change >= 0 ? "text-green-400" : "text-red-400"}>
                       {formatCurrency(Math.abs(change))}
                     </span>
                   </div>
                   {change < 0 && (
-                    <p className="text-red-400 text-sm">⚠️ Insufficient amount</p>
+                    <p className="text-red-400 text-sm">⚠️ Uang tidak cukup</p>
                   )}
                 </div>
               )}
@@ -270,7 +274,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
           {paymentMethod === "qris" && (
             <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
               <p className="text-purple-400 text-sm">
-                📱 Customer will scan QRIS code from their phone. Use this for walk-in customers who want to pay via QRIS.
+                📱 Pelanggan akan scan kode QRIS dari ponsel mereka. Gunakan ini untuk pelanggan yang membayar via QRIS.
               </p>
             </div>
           )}
@@ -282,7 +286,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
             onClick={onClose}
             className="flex-1 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
           >
-            Cancel
+            Batal
           </button>
           <button
             onClick={handlePayment}
@@ -292,7 +296,7 @@ export function PaymentModal({ order, cashierName, onClose, onPaymentComplete }:
             }
             className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
           >
-            {processing ? "Processing..." : "Confirm Payment"}
+            {processing ? "Memproses..." : "Konfirmasi Pembayaran"}
           </button>
         </div>
       </div>
