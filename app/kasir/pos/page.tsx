@@ -173,7 +173,7 @@ export default function POSPage() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = Math.round(subtotal * 0.10 * 100) / 100;
+  const tax = 0;
   const total = subtotal + tax;
   const change = paymentMethod === "cash" ? Math.round((parseFloat(cashReceived) - total) * 100) / 100 : 0;
 

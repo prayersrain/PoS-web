@@ -227,7 +227,7 @@ export default function OrdersPage() {
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const cartTax = Math.round(cartTotal * (settings?.taxPercent / 100 || 0.1) * 100) / 100;
+  const cartTax = 0;
   const cartGrandTotal = cartTotal + cartTax;
 
   const getStatusBadge = (status: string) => {

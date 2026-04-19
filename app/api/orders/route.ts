@@ -81,7 +81,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const tax = Math.round(subtotal * 0.10 * 100) / 100; // 10% tax, rounded to 2 decimals
+    const taxRate = orderSource === "qr" ? 0.03 : 0;
+    const tax = Math.round(subtotal * taxRate * 100) / 100;
     const totalAmount = Math.round((subtotal + tax) * 100) / 100;
 
     // Generate queue number for take-away orders

@@ -131,10 +131,12 @@ export const PrintableReceipt = React.forwardRef<HTMLDivElement, ReceiptProps>((
           <span>Subtotal:</span>
           <span>{formatCurrency(subtotal)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Pajak ({settings?.taxPercent || 10}%):</span>
-          <span>{formatCurrency(tax)}</span>
-        </div>
+        {tax > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Pajak ({settings?.taxPercent || 3}%):</span>
+            <span>{formatCurrency(tax)}</span>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "14px", marginTop: "1mm" }}>
           <span>TOTAL:</span>
           <span>{formatCurrency(total)}</span>

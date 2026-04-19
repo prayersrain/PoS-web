@@ -83,7 +83,7 @@ export interface CartItem {
   note: string;
 }
 
-export const TAX_RATE = 0.10; // 10% PPN
+export const TAX_RATE = 0.03; // 3% PPN
 
 export const categoryLabels: Record<MenuCategory, string> = {
   nasi: "Nasi",

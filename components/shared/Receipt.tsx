@@ -87,10 +87,12 @@ export function Receipt({ order, paymentMethod, cashierName }: ReceiptProps) {
           <span>Subtotal:</span>
           <span>{formatCurrency(order.subtotal)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Pajak ({(TAX_RATE * 100).toFixed(0)}%):</span>
-          <span>{formatCurrency(order.tax)}</span>
-        </div>
+        {order.tax > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Pajak ({(TAX_RATE * 100).toFixed(0)}%):</span>
+            <span>{formatCurrency(order.tax)}</span>
+          </div>
+        )}
         <div style={{ borderTop: "1px solid #000", margin: "4px 0" }} />
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "14px" }}>
           <span>TOTAL:</span>

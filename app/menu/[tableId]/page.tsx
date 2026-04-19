@@ -161,7 +161,7 @@ export default function CustomerMenuPage() {
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const cartTax = Math.round(cartTotal * 0.10 * 100) / 100;
+  const cartTax = Math.round(cartTotal * 0.03 * 100) / 100;
   const cartGrandTotal = cartTotal + cartTax;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -699,7 +699,7 @@ export default function CustomerMenuPage() {
                  <span className="text-gray-900 font-black">{formatCurrency(cartTotal)}</span>
                </div>
                <div className="flex justify-between text-xs">
-                 <span className="text-gray-500 font-bold">Tax (10%)</span>
+                 <span className="text-gray-500 font-bold">Tax (3%)</span>
                  <span className="text-gray-900 font-black">{formatCurrency(cartTax)}</span>
                </div>
             </div>
