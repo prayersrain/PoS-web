@@ -55,13 +55,18 @@ export async function createQRISPayment(params: CreatePaymentParams) {
       })),
       // Add tax as a separate item to match gross_amount
       {
-        id: "tax-10pct",
+        id: "pajak-3pct",
         price: params.amount - params.items.reduce((sum, item) => sum + item.price * item.quantity, 0),
         quantity: 1,
-        name: "Pajak (10%)",
+        name: "Pajak (3%)",
       },
     ],
     enabled_payments: ["qris", "gopay", "shopeepay", "bca_va", "mandiri_va", "bni_va", "bri_va"],
+    callbacks: {
+      finish: `${process.env.NEXT_PUBLIC_APP_URL || "https://po-s-web.vercel.app"}/payment/${params.orderId}`,
+      error: `${process.env.NEXT_PUBLIC_APP_URL || "https://po-s-web.vercel.app"}/payment/${params.orderId}`,
+      pending: `${process.env.NEXT_PUBLIC_APP_URL || "https://po-s-web.vercel.app"}/payment/${params.orderId}`,
+    },
   };
 
   try {
