@@ -174,17 +174,6 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col p-4 pb-20">
-      {/* Midtrans Snap JS */}
-      <Script
-        src={
-          process.env.NODE_ENV === "production"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        onReady={() => setSnapLoaded(true)}
-        strategy="afterInteractive"
-      />
 
       {paid && order ? (
         <div className="flex-1">
