@@ -6,7 +6,9 @@ const MIDTRANS_SANDBOX_SNAP = "https://app.sandbox.midtrans.com";
 const MIDTRANS_PROD_API = "https://api.midtrans.com";
 const MIDTRANS_PROD_SNAP = "https://app.midtrans.com";
 
-const MIDTRANS_API = process.env.NODE_ENV === "production"
+const IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
+
+const MIDTRANS_API = IS_PRODUCTION
   ? { core: MIDTRANS_PROD_API, snap: MIDTRANS_PROD_SNAP }
   : { core: MIDTRANS_SANDBOX_API, snap: MIDTRANS_SANDBOX_SNAP };
 
